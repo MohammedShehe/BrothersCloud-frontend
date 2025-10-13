@@ -136,6 +136,79 @@ button.loading::after {
   100% { transform: rotate(360deg); }
 }
 
+/* Partner Logo Styles */
+.partner-logo {
+  text-align: center;
+  margin: 20px 0 10px 0;
+  padding: 10px;
+  position: relative;
+}
+
+.partner-logo a {
+  display: inline-block;
+  transition: transform 0.3s ease;
+  text-decoration: none;
+}
+
+.partner-logo a:hover {
+  transform: scale(1.05);
+}
+
+.partner-logo img {
+  max-width: 120px;
+  height: auto;
+  opacity: 0.8;
+  transition: opacity 0.3s ease;
+}
+
+.partner-logo a:hover img {
+  opacity: 1;
+}
+
+/* Click Indicator Styles */
+.click-indicator {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 10px;
+  animation: bounce 2s infinite;
+}
+
+.arrow {
+  font-size: 1.2rem;
+  margin-right: 8px;
+  color: #00c6ff;
+  filter: drop-shadow(0 0 5px rgba(0, 198, 255, 0.7));
+}
+
+.click-text {
+  font-size: 0.8rem;
+  color: #f1f1f1;
+  font-weight: 500;
+  background: rgba(0, 0, 0, 0.3);
+  padding: 4px 8px;
+  border-radius: 8px;
+  backdrop-filter: blur(5px);
+}
+
+/* Bounce animation for the arrow */
+@keyframes bounce {
+  0%, 20%, 50%, 80%, 100% {
+    transform: translateX(0);
+  }
+  40% {
+    transform: translateX(-5px);
+  }
+  60% {
+    transform: translateX(-3px);
+  }
+}
+
+/* Enhanced hover effects for the entire partner section */
+.partner-logo:hover .click-indicator {
+  animation: none;
+  opacity: 0.7;
+}
 
 /* Message box */
 .message {
@@ -194,6 +267,24 @@ button.loading::after {
   button {
     padding: 1rem;
   }
+  
+  .partner-logo img {
+    max-width: 100px;
+  }
+  
+  .click-indicator {
+    flex-direction: column;
+    gap: 5px;
+  }
+  
+  .arrow {
+    margin-right: 0;
+    margin-bottom: 2px;
+  }
+  
+  .click-text {
+    font-size: 0.75rem;
+  }
 }
 
 /* Extra small devices */
@@ -213,6 +304,10 @@ button.loading::after {
   
   button {
     font-size: 0.95rem;
+  }
+  
+  .partner-logo img {
+    max-width: 90px;
   }
 }
 
@@ -259,6 +354,14 @@ button.loading::after {
   .logo {
     animation: none;
   }
+  
+  .partner-logo a {
+    transition: none;
+  }
+  
+  .click-indicator {
+    animation: none;
+  }
 }
 
 /* Orientation-based adjustments */
@@ -271,4 +374,27 @@ button.loading::after {
   .login-container {
     margin: 20px 0;
   }
+}
+
+/* Loader Styles */
+.loader-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+}
+
+.spinner {
+  width: 50px;
+  height: 50px;
+  border: 5px solid rgba(255, 255, 255, 0.3);
+  border-top: 5px solid #007bff;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
 }
