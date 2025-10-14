@@ -1,8 +1,7 @@
-// login.js
-
 document.addEventListener("DOMContentLoaded", () => {
   const form = document.getElementById("loginForm");
   const loginBtn = form.querySelector("button[type='submit']");
+  const loader = document.getElementById("loader");
 
   form.addEventListener("submit", async (e) => {
     e.preventDefault();
@@ -19,9 +18,10 @@ document.addEventListener("DOMContentLoaded", () => {
       return;
     }
 
-    // Show spinner on button
+    // Show spinner on button and loader overlay
     loginBtn.classList.add("loading");
     loginBtn.disabled = true;
+    loader.style.display = "flex";
 
     try {
       const res = await fetch("https://brotherscloud-1.onrender.com/api/auth/login", {
@@ -53,6 +53,7 @@ document.addEventListener("DOMContentLoaded", () => {
       // Hide spinner and enable button
       loginBtn.classList.remove("loading");
       loginBtn.disabled = false;
+      loader.style.display = "none";
     }
   });
 });
