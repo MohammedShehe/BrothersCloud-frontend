@@ -564,6 +564,12 @@ class Dashboard {
     btn.classList.add("active");
     this.currentType = btn.dataset.type;
     this.loadData(this.currentType);
+
+    
+    if (this.currentType === 'fbsc') {
+      window.location.href = 'fbsc.html';
+      return;
+    }
   }
 
   handleSearch() {

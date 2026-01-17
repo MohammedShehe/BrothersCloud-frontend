@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>BrothersCloud - FBSC Records</title>
+  <link rel="stylesheet" href="css/fbsc.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+  <!-- Header -->
+  <header class="fbsc-header">
+    <div class="header-content">
+      <div class="header-left">
+        <button id="backBtn" class="btn-back">
+          <i class="fas fa-arrow-left"></i> Back
+        </button>
+        <h1>
+          <i class="fas fa-store"></i>
+          Four Brothers Sports Center
+        </h1>
+      </div>
+      <div class="header-right">
+        <button id="modeToggle" class="mode-btn">
+          <i class="fas fa-moon"></i>
+        </button>
+        <button id="newRecordBtn" class="btn-primary">
+          <i class="fas fa-plus"></i> New Record
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Content -->
+  <main class="fbsc-container">
+    <!-- Statistics Dashboard -->
+    <section class="dashboard-section">
+      <div class="stat-card total-orders">
+        <div class="stat-icon">
+          <i class="fas fa-shopping-cart"></i>
+        </div>
+        <div class="stat-info">
+          <h3 id="totalOrders">0</h3>
+          <p>Total Orders</p>
+        </div>
+      </div>
+      <div class="stat-card total-revenue">
+        <div class="stat-icon">
+          <i class="fas fa-money-bill-wave"></i>
+        </div>
+        <div class="stat-info">
+          <h3 id="totalRevenue">$0</h3>
+          <p>Total Revenue</p>
+        </div>
+      </div>
+      <div class="stat-card avg-order">
+        <div class="stat-icon">
+          <i class="fas fa-chart-line"></i>
+        </div>
+        <div class="stat-info">
+          <h3 id="avgOrder">$0</h3>
+          <p>Avg. Order Value</p>
+        </div>
+      </div>
+      <div class="stat-card recent-activity">
+        <div class="stat-icon">
+          <i class="fas fa-calendar-day"></i>
+        </div>
+        <div class="stat-info">
+          <h3 id="recentOrders">0</h3>
+          <p>Today's Orders</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- Filters Section -->
+    <section class="filters-section">
+      <div class="filter-group">
+        <input type="text" id="searchInput" placeholder="Search customers or products...">
+        <select id="productFilter">
+          <option value="all">All Products</option>
+          <!-- Products will be populated dynamically -->
+        </select>
+        <input type="text" id="dateRange" placeholder="Select date range">
+        <button id="applyFilters" class="btn-secondary">
+          <i class="fas fa-filter"></i> Apply Filters
+        </button>
+        <button id="resetFilters" class="btn-outline">
+          <i class="fas fa-redo"></i> Reset
+        </button>
+        <button id="exportBtn" class="btn-success">
+          <i class="fas fa-download"></i> Export
+        </button>
+      </div>
+    </section>
+
+    <!-- Records Table -->
+    <section class="records-section">
+      <div class="section-header">
+        <h2><i class="fas fa-list"></i> Sales Records</h2>
+        <div class="table-controls">
+          <div class="pagination-info">
+            Showing <span id="startRecord">0</span>-<span id="endRecord">0</span> of <span id="totalRecords">0</span>
+          </div>
+          <div class="pagination-buttons">
+            <button id="prevPage" class="btn-pagination" disabled>
+              <i class="fas fa-chevron-left"></i>
+            </button>
+            <button id="nextPage" class="btn-pagination" disabled>
+              <i class="fas fa-chevron-right"></i>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div class="table-container">
+        <table id="recordsTable">
+          <thead>
+            <tr>
+              <th>Date</th>
+              <th>Customer</th>
+              <th>Product</th>
+              <th>Pair</th>
+              <th>Price</th>
+              <th>Added By</th>
+              <th>Notes</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            <!-- Records will be populated here -->
+          </tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+
+  <!-- New Record Modal -->
+  <div id="recordModal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3 id="modalTitle">Add New Record</h3>
+        <button class="btn-close">&times;</button>
+      </div>
+      <div class="modal-body">
+        <form id="recordForm">
+          <div class="form-row">
+            <div class="form-group">
+              <label for="customerName">
+                <i class="fas fa-user"></i> Customer Name *
+              </label>
+              <input type="text" id="customerName" required>
+            </div>
+            <div class="form-group">
+              <label for="productName">
+                <i class="fas fa-tag"></i> Product *
+              </label>
+              <div class="input-with-button">
+                <input type="text" id="productName" list="productSuggestions" required>
+                <datalist id="productSuggestions"></datalist>
+                <button type="button" id="quickProducts" class="btn-icon">
+                  <i class="fas fa-bolt"></i>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label for="pairCount">
+                <i class="fas fa-shoe-prints"></i> Pair
+              </label>
+              <input type="number" id="pairCount" min="1" value="1">
+            </div>
+            <div class="form-group">
+              <label for="price">
+                <i class="fas fa-dollar-sign"></i> Price *
+              </label>
+              <input type="number" id="price" step="0.01" min="0.01" required>
+            </div>
+            <div class="form-group">
+              <label for="recordDate">
+                <i class="fas fa-calendar"></i> Date *
+              </label>
+              <input type="text" id="recordDate" required>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label for="notes">
+              <i class="fas fa-sticky-note"></i> Notes
+            </label>
+            <textarea id="notes" rows="3" placeholder="Additional notes..."></textarea>
+          </div>
+
+          <div class="form-actions">
+            <button type="button" class="btn-outline btn-cancel">Cancel</button>
+            <button type="submit" class="btn-primary">
+              <i class="fas fa-save"></i> Save Record
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Quick Products Menu -->
+  <div id="quickProductsMenu" class="dropdown-menu">
+    <div class="dropdown-header">
+      <h4>Quick Products</h4>
+      <button class="btn-close-small">&times;</button>
+    </div>
+    <div class="dropdown-content">
+      <!-- Products will be populated dynamically -->
+    </div>
+  </div>
+
+  <!-- Loading Overlay -->
+  <div id="loader" class="loader-overlay">
+    <div class="spinner"></div>
+  </div>
+
+  <!-- Toast Notifications -->
+  <div id="toastContainer" class="toast-container"></div>
+
+  <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+  <script src="js/theme.js"></script>
+  <script src="js/fbsc.js"></script>
+</body>
+</html>

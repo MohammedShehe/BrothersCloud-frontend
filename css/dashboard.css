@@ -335,6 +335,7 @@ header {
 .menu-btn[data-type="documents"]::before { content: "📄"; }
 .menu-btn[data-type="videos"]::before { content: "🎬"; }
 .menu-btn[data-type="calendar"]::before { content: "📅"; }
+.menu-btn[data-type="fbsc"]::before { content: "🏪"; }
 
 /* ===========================
    Main Content Area
