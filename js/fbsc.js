@@ -27,7 +27,7 @@ class FBSCManager {
     this.setupEventListeners();
     this.initializeDatePicker();
     await this.loadProducts();
-    await this.loadStats();
+    await this.loadStats();  // Fixed: Load stats first
     await this.loadRecords();
   }
 
@@ -218,10 +218,22 @@ class FBSCManager {
     }
   }
 
+  // FIXED: Load stats function
   async loadStats() {
     try {
-      const today = new Date().toISOString().split('T')[0];
-      const response = await fetch(`${this.apiBase}/stats?from=${today}`, {
+      console.log('Loading stats from API...');
+      
+      // Build query parameters based on current filters
+      const queryParams = new URLSearchParams();
+      
+      // Only add date filters if they exist
+      if (this.filters.from) queryParams.append('from', this.filters.from);
+      if (this.filters.to) queryParams.append('to', this.filters.to);
+      
+      const url = `${this.apiBase}/stats?${queryParams.toString()}`;
+      console.log('Fetching stats from:', url);
+      
+      const response = await fetch(url, {
         headers: {
           'Authorization': `Bearer ${this.token}`
         }
@@ -229,40 +241,56 @@ class FBSCManager {
 
       if (response.ok) {
         const stats = await response.json();
+        console.log('Stats API response:', stats);
         this.updateStatsDisplay(stats);
+      } else {
+        console.error('Stats API error:', response.status, response.statusText);
+        this.showToast('Error loading statistics', 'error');
       }
     } catch (error) {
       console.error('Error loading stats:', error);
+      this.showToast('Failed to load statistics', 'error');
     }
   }
 
+  // FIXED: Update stats display function
   updateStatsDisplay(stats) {
+    console.log('Updating display with stats:', stats);
+    
+    // Handle the response structure
     const revenue = stats.revenue || {};
     
-    this.elements.totalOrders.textContent = revenue.total_orders || 0;
-    this.elements.totalRevenue.textContent = `$${this.formatCurrency(revenue.total_revenue || 0)}`;
-    this.elements.avgOrder.textContent = `$${this.formatCurrency(revenue.avg_order_value || 0)}`;
-    
-    // For recent orders (today), we'll need to load separately
-    this.loadTodayOrders();
-  }
-
-  async loadTodayOrders() {
-    try {
-      const today = new Date().toISOString().split('T')[0];
-      const response = await fetch(`${this.apiBase}/records?from=${today}&to=${today}`, {
-        headers: {
-          'Authorization': `Bearer ${this.token}`
-        }
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        this.elements.recentOrders.textContent = data.pagination?.total || 0;
-      }
-    } catch (error) {
-      console.error('Error loading today orders:', error);
+    // Update total orders
+    if (this.elements.totalOrders) {
+      const totalOrders = parseInt(revenue.total_orders) || 0;
+      this.elements.totalOrders.textContent = totalOrders.toLocaleString();
     }
+    
+    // Update total revenue
+    if (this.elements.totalRevenue) {
+      const totalRevenue = parseFloat(revenue.total_revenue) || 0;
+      this.elements.totalRevenue.textContent = `TZS ${this.formatCurrency(totalRevenue)}`;
+    }
+    
+    // Update average order value
+    if (this.elements.avgOrder) {
+      const avgValue = parseFloat(revenue.avg_order_value) || 0;
+      this.elements.avgOrder.textContent = `TZS ${this.formatCurrency(avgValue)}`;
+    }
+    
+    // Update today's orders
+    if (this.elements.recentOrders) {
+      const todayOrders = parseInt(revenue.today_orders) || 0;
+      this.elements.recentOrders.textContent = todayOrders.toLocaleString();
+    }
+    
+    // Debug log to verify values
+    console.log('Display updated:', {
+      totalOrders: this.elements.totalOrders?.textContent,
+      totalRevenue: this.elements.totalRevenue?.textContent,
+      avgOrder: this.elements.avgOrder?.textContent,
+      recentOrders: this.elements.recentOrders?.textContent
+    });
   }
 
   async loadRecords() {
@@ -316,12 +344,12 @@ class FBSCManager {
       const row = document.createElement('tr');
       row.innerHTML = `
         <td>${this.formatDate(record.record_date)}</td>
-        <td><strong>${record.customer_name}</strong></td>
-        <td>${record.product}</td>
+        <td><strong>${this.escapeHtml(record.customer_name)}</strong></td>
+        <td>${this.escapeHtml(record.product)}</td>
         <td>${record.pair || 1}</td>
-        <td class="price-cell">$${this.formatCurrency(record.price)}</td>
+        <td class="price-cell">TZS ${this.formatCurrency(record.price)}</td>
         <td>${record.first_name || 'User'}</td>
-        <td>${record.notes || '-'}</td>
+        <td>${record.notes ? this.escapeHtml(record.notes) : '-'}</td>
         <td>
           <div class="action-buttons">
             <button class="btn-action btn-edit" data-id="${record.record_id}">
@@ -387,7 +415,7 @@ class FBSCManager {
       if (response.ok) {
         this.showToast('Record deleted successfully', 'success');
         await this.loadRecords();
-        await this.loadStats();
+        await this.loadStats(); // Reload stats after deletion
       } else {
         const error = await response.json();
         this.showToast(error.message || 'Error deleting record', 'error');
@@ -429,13 +457,15 @@ class FBSCManager {
     this.filters.product = this.elements.productFilter.value;
     this.currentPage = 1;
     this.loadRecords();
-    this.loadStats();
+    this.loadStats(); // Reload stats when filters change
   }
 
   resetFilters() {
     this.elements.searchInput.value = '';
     this.elements.productFilter.value = 'all';
-    this.elements.dateRange._flatpickr.clear();
+    if (this.elements.dateRange._flatpickr) {
+      this.elements.dateRange._flatpickr.clear();
+    }
     this.filters = {
       search: '',
       product: 'all',
@@ -445,7 +475,7 @@ class FBSCManager {
     };
     this.currentPage = 1;
     this.loadRecords();
-    this.loadStats();
+    this.loadStats(); // Reload stats when resetting
   }
 
   openModal(record = null) {
@@ -454,17 +484,24 @@ class FBSCManager {
     
     if (record) {
       this.elements.modalTitle.textContent = 'Edit Record';
-      this.elements.customerName.value = record.customer_name;
-      this.elements.productName.value = record.product;
+      this.elements.customerName.value = record.customer_name || '';
+      this.elements.productName.value = record.product || '';
       this.elements.pairCount.value = record.pair || 1;
-      this.elements.price.value = record.price;
-      this.elements.recordDate._flatpickr.setDate(record.record_date);
+      this.elements.price.value = record.price || '';
+      
+      // Set date if record_date exists
+      if (record.record_date && this.elements.recordDate._flatpickr) {
+        this.elements.recordDate._flatpickr.setDate(record.record_date);
+      }
+      
       this.elements.notes.value = record.notes || '';
       this.editingId = record.record_id;
     } else {
       this.elements.modalTitle.textContent = 'Add New Record';
       form.reset();
-      this.elements.recordDate._flatpickr.setDate('today');
+      if (this.elements.recordDate._flatpickr) {
+        this.elements.recordDate._flatpickr.setDate('today');
+      }
       this.editingId = null;
     }
     
@@ -527,7 +564,7 @@ class FBSCManager {
         
         this.closeModal();
         await this.loadRecords();
-        await this.loadStats();
+        await this.loadStats(); // Reload stats after saving
         
         // Add new product to list if not already there
         if (!this.products.includes(record.product)) {
@@ -611,22 +648,38 @@ class FBSCManager {
   }
 
   formatCurrency(amount) {
-    return parseFloat(amount).toFixed(2);
+    return parseFloat(amount).toLocaleString('en-US', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2
+    });
+  }
+
+  escapeHtml(text) {
+    if (!text) return '';
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
   }
 
   showLoader() {
-    this.elements.loader.style.display = 'flex';
+    if (this.elements.loader) {
+      this.elements.loader.style.display = 'flex';
+    }
   }
 
   hideLoader() {
-    this.elements.loader.style.display = 'none';
+    if (this.elements.loader) {
+      this.elements.loader.style.display = 'none';
+    }
   }
 
   showToast(message, type = 'info') {
+    if (!this.elements.toastContainer) return;
+    
     const toast = document.createElement('div');
     toast.className = `toast ${type}`;
     toast.innerHTML = `
-      <div class="toast-message">${message}</div>
+      <div class="toast-message">${this.escapeHtml(message)}</div>
       <button class="toast-close">&times;</button>
     `;
     
@@ -651,5 +704,26 @@ class FBSCManager {
 
 // Initialize FBSC Manager when DOM is loaded
 document.addEventListener('DOMContentLoaded', () => {
+  console.log('FBSC Manager initializing...');
   new FBSCManager();
 });
+
+// Debug helper
+window.debugFBSC = () => {
+  const manager = new FBSCManager();
+  console.log('Debug: Current state:', {
+    token: manager.token ? 'Exists' : 'Missing',
+    apiBase: manager.apiBase,
+    filters: manager.filters
+  });
+  
+  // Test the stats API directly
+  if (manager.token) {
+    fetch(`${manager.apiBase}/stats`, {
+      headers: { 'Authorization': `Bearer ${manager.token}` }
+    })
+      .then(res => res.json())
+      .then(data => console.log('Debug: API Response:', data))
+      .catch(err => console.error('Debug: API Error:', err));
+  }
+};
