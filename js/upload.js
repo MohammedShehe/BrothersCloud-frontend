@@ -28,7 +28,9 @@ uploadType.addEventListener('change', () => {
     fileGroup.style.display = 'none';
     eventGroup.style.display = 'block';
     fileInput.value = '';
-  } else {
+  } else if (type === 'password') {
+    window.location.href = 'passwords.html';
+  }else {
     fileGroup.style.display = 'block';
     eventGroup.style.display = 'none';
     fileInput.value = '';
