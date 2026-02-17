@@ -4,13 +4,12 @@ class PasswordManager {
   constructor() {
     this.apiBase = "https://brotherscloud-1.onrender.com/api/passwords";
     this.token = localStorage.getItem('token');
+    this.user = JSON.parse(localStorage.getItem('user'));
     this.currentPage = 1;
     this.pageSize = 20;
     this.filters = {
       search: '',
-      category: 'all',
-      from: '',
-      to: ''
+      category: 'all'
     };
     this.editingId = null;
     this.categories = [];
@@ -20,7 +19,7 @@ class PasswordManager {
   }
 
   async init() {
-    if (!this.token) {
+    if (!this.token || !this.user) {
       window.location.href = 'index.html';
       return;
     }
@@ -200,11 +199,20 @@ class PasswordManager {
         this.toggleQuickCategories(false);
       }
     });
+
+    // Check for password ID in URL
+    const urlParams = new URLSearchParams(window.location.search);
+    const passwordId = urlParams.get('id');
+    if (passwordId) {
+      setTimeout(() => this.viewPassword(passwordId), 500);
+    }
   }
 
   initializeDatePickers() {
+    if (typeof flatpickr === 'undefined') return;
+
     // Password date picker
-    if (this.elements.passwordDate && typeof flatpickr !== 'undefined') {
+    if (this.elements.passwordDate) {
       flatpickr(this.elements.passwordDate, {
         dateFormat: "Y-m-d",
         altInput: true,
@@ -215,7 +223,7 @@ class PasswordManager {
     }
 
     // Expiry date picker
-    if (this.elements.expiryDate && typeof flatpickr !== 'undefined') {
+    if (this.elements.expiryDate) {
       flatpickr(this.elements.expiryDate, {
         dateFormat: "Y-m-d",
         altInput: true,
@@ -324,7 +332,7 @@ class PasswordManager {
 
   async loadStats() {
     try {
-      const response = await fetch(`${this.apiBase}/stats`, {
+      const response = await fetch(`${this.apiBase}/stats?user_id=${this.user.user_id}`, {
         headers: {
           'Authorization': `Bearer ${this.token}`
         }
@@ -359,6 +367,7 @@ class PasswordManager {
     
     try {
       const queryParams = new URLSearchParams({
+        user_id: this.user.user_id,
         ...this.filters,
         limit: this.pageSize,
         offset: (this.currentPage - 1) * this.pageSize
@@ -372,8 +381,15 @@ class PasswordManager {
 
       if (response.ok) {
         const data = await response.json();
-        this.displayPasswords(data.passwords || []);
-        this.updatePagination(data.pagination || {});
+        const passwords = Array.isArray(data) ? data : (data.passwords || []);
+        const pagination = data.pagination || {
+          total: passwords.length,
+          limit: this.pageSize,
+          offset: (this.currentPage - 1) * this.pageSize
+        };
+        
+        this.displayPasswords(passwords);
+        this.updatePagination(pagination);
       } else {
         this.showToast('Error loading passwords', 'error');
       }
@@ -396,7 +412,7 @@ class PasswordManager {
     if (passwords.length === 0) {
       const row = document.createElement('tr');
       row.innerHTML = `
-        <td colspan="8" style="text-align: center; padding: 3rem; color: var(--gray-600);">
+        <td colspan="8" style="text-align: center; padding: 3rem; color: #6c757d;">
           <i class="fas fa-key" style="font-size: 3rem; opacity: 0.5; margin-bottom: 1rem;"></i>
           <p>No passwords found</p>
         </td>
@@ -445,13 +461,13 @@ class PasswordManager {
         <td>
           <div class="action-buttons">
             <button class="btn-action btn-view" data-id="${password.password_id}">
-              <i class="fas fa-eye"></i> View
+              <i class="fas fa-eye"></i>
             </button>
             <button class="btn-action btn-edit" data-id="${password.password_id}">
-              <i class="fas fa-edit"></i> Edit
+              <i class="fas fa-edit"></i>
             </button>
             <button class="btn-action btn-delete" data-id="${password.password_id}">
-              <i class="fas fa-trash"></i> Delete
+              <i class="fas fa-trash"></i>
             </button>
           </div>
         </td>
@@ -678,6 +694,11 @@ class PasswordManager {
       this.elements.viewPasswordModal.classList.remove('active');
     }
     this.currentPassword = null;
+    
+    // Remove ID from URL
+    const url = new URL(window.location);
+    url.searchParams.delete('id');
+    window.history.replaceState({}, '', url);
   }
 
   async editPassword(id) {
@@ -704,6 +725,8 @@ class PasswordManager {
       return;
     }
 
+    this.showLoader();
+
     try {
       const response = await fetch(`${this.apiBase}/${id}`, {
         method: 'DELETE',
@@ -716,6 +739,7 @@ class PasswordManager {
         this.showToast('Password deleted successfully', 'success');
         await this.loadPasswords();
         await this.loadStats();
+        this.closeViewModal();
       } else {
         const error = await response.json();
         this.showToast(error.message || 'Error deleting password', 'error');
@@ -723,6 +747,8 @@ class PasswordManager {
     } catch (error) {
       console.error('Error deleting password:', error);
       this.showToast('Failed to delete password', 'error');
+    } finally {
+      this.hideLoader();
     }
   }
 
@@ -733,7 +759,7 @@ class PasswordManager {
     const end = Math.min(offset + limit, total);
     
     if (this.elements.startRecord) {
-      this.elements.startRecord.textContent = start;
+      this.elements.startRecord.textContent = start > total ? 0 : start;
     }
     
     if (this.elements.endRecord) {
@@ -790,9 +816,7 @@ class PasswordManager {
     
     this.filters = {
       search: '',
-      category: 'all',
-      from: '',
-      to: ''
+      category: 'all'
     };
     this.currentPage = 1;
     this.loadPasswords();
@@ -884,6 +908,7 @@ class PasswordManager {
     e.preventDefault();
     
     const passwordData = {
+      user_id: this.user.user_id,
       service_name: this.elements.serviceName ? this.elements.serviceName.value.trim() : '',
       service_url: this.elements.serviceUrl ? this.elements.serviceUrl.value.trim() || null : null,
       username: this.elements.username ? this.elements.username.value.trim() || null : null,
@@ -958,9 +983,16 @@ class PasswordManager {
   }
 
   async exportData() {
+    this.showLoader();
+    
     try {
-      const queryParams = new URLSearchParams(this.filters);
-      const response = await fetch(`${this.apiBase}?${queryParams}&limit=1000`, {
+      const queryParams = new URLSearchParams({
+        user_id: this.user.user_id,
+        ...this.filters,
+        limit: 1000
+      });
+      
+      const response = await fetch(`${this.apiBase}?${queryParams}`, {
         headers: {
           'Authorization': `Bearer ${this.token}`
         }
@@ -968,7 +1000,7 @@ class PasswordManager {
 
       if (response.ok) {
         const data = await response.json();
-        const passwords = data.passwords || [];
+        const passwords = Array.isArray(data) ? data : (data.passwords || []);
         
         if (passwords.length === 0) {
           this.showToast('No data to export', 'warning');
@@ -987,12 +1019,12 @@ class PasswordManager {
             `"${p.category || 'general'}"`,
             p.password_date,
             p.expiry_date || '',
-            `"${p.notes || ''}"`
+            `"${(p.notes || '').replace(/"/g, '""')}"`
           ].join(','))
         ];
 
         const csvContent = csvRows.join('\n');
-        const blob = new Blob([csvContent], { type: 'text/csv' });
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
@@ -1007,6 +1039,8 @@ class PasswordManager {
     } catch (error) {
       console.error('Error exporting data:', error);
       this.showToast('Failed to export data', 'error');
+    } finally {
+      this.hideLoader();
     }
   }
 

@@ -54,6 +54,25 @@ const utils = {
     const loader = document.getElementById("loader");
     if (loader) loader.style.display = "none";
   },
+
+  // Helper to ensure data is always an array
+  ensureArray: (data) => {
+    if (Array.isArray(data)) return data;
+    if (data && typeof data === 'object') {
+      if (data.data && Array.isArray(data.data)) return data.data;
+      if (data.passwords && Array.isArray(data.passwords)) return data.passwords;
+      if (data.results && Array.isArray(data.results)) return data.results;
+      if (data.id || data.website || data.username || data.service_name) return [data];
+    }
+    return [];
+  },
+
+  escapeHtml: (text) => {
+    if (!text) return '';
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+  }
 };
 
 /* ===========================
@@ -80,7 +99,7 @@ class Dashboard {
     this.setupEventListeners();
     this.displayUserInfo();
     await this.loadData(this.currentType);
-    await this.loadBirthdays(); // 🎂 Birthday reminder
+    await this.loadBirthdays();
   }
 
   cacheElements() {
@@ -91,7 +110,7 @@ class Dashboard {
       uploadBtn: document.getElementById("uploadBtn"),
       userName: document.getElementById("userName"),
       logoutBtn: document.getElementById("logoutBtn"),
-      birthdayBox: document.getElementById("birthdayBox"), // 🎂 Added
+      birthdayBox: document.getElementById("birthdayBox"),
     };
   }
 
@@ -125,10 +144,15 @@ class Dashboard {
   async loadData(type) {
     try {
       utils.showLoader();
-      const url =
-        type === "calendar"
-          ? `${API_BASE}/events?user_id=${this.user.user_id}`
-          : `${API_BASE}/files?file_type=${type.slice(0, -1)}`;
+      let url;
+
+      if (type === "calendar") {
+        url = `${API_BASE}/events?user_id=${this.user.user_id}`;
+      } else if (type === "passwords") {
+        url = `${API_BASE}/passwords?user_id=${this.user.user_id}`;
+      } else {
+        url = `${API_BASE}/files?file_type=${type.slice(0, -1)}`;
+      }
 
       const response = await fetch(url, {
         headers: { Authorization: `Bearer ${this.token}` },
@@ -138,7 +162,8 @@ class Dashboard {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
 
-      this.allData = await response.json();
+      const responseData = await response.json();
+      this.allData = utils.ensureArray(responseData);
 
       if (type === "calendar") {
         this.events = this.allData;
@@ -161,7 +186,9 @@ class Dashboard {
   }
 
   renderContent(data, type) {
-    if (!data || data.length === 0) {
+    const dataArray = utils.ensureArray(data);
+    
+    if (!dataArray || dataArray.length === 0) {
       this.elements.content.innerHTML = `
         <div class="empty-state">
           <i class="icon-empty"></i>
@@ -171,12 +198,14 @@ class Dashboard {
       return;
     }
 
-    this.elements.content.innerHTML =
-      type === "calendar"
-        ? this.renderEvents(data)
-        : this.renderFiles(data, type);
-
-    if (type !== "calendar") this.setupFileInteractions();
+    if (type === "calendar") {
+      this.elements.content.innerHTML = this.renderEvents(dataArray);
+    } else if (type === "passwords") {
+      this.elements.content.innerHTML = this.renderPasswords(dataArray);
+    } else {
+      this.elements.content.innerHTML = this.renderFiles(dataArray, type);
+      this.setupFileInteractions();
+    }
   }
 
   /* ===========================
@@ -191,10 +220,10 @@ class Dashboard {
           <li>
             <div class="event-date">${utils.formatDate(event.event_date)}</div>
             <div class="event-content">
-              <h3 class="event-title">${event.event_name}</h3>
+              <h3 class="event-title">${utils.escapeHtml(event.event_name)}</h3>
               ${
                 event.event_description
-                  ? `<p class="event-description">${event.event_description}</p>`
+                  ? `<p class="event-description">${utils.escapeHtml(event.event_description)}</p>`
                   : ""
               }
               ${
@@ -283,10 +312,10 @@ class Dashboard {
       if (!response.ok) throw new Error("Failed to fetch birthdays");
 
       const data = await response.json();
-      const birthdays = Array.isArray(data) ? data : data.birthdays || [];
+      const birthdays = utils.ensureArray(data);
 
       if (birthdays.length > 0) {
-        this.elements.birthdayBox.style.display = "block"; // show the box
+        this.elements.birthdayBox.style.display = "block";
         this.elements.birthdayBox.innerHTML = `
           <h3>🎂 Upcoming Birthdays</h3>
           <ul>
@@ -294,15 +323,18 @@ class Dashboard {
               .map((u) => {
                 const dob = new Date(u.date_of_birth);
                 const now = new Date();
-                dob.setFullYear(now.getFullYear());
-
+                const dobThisYear = new Date(dob);
+                dobThisYear.setFullYear(now.getFullYear());
+                
+                if (dobThisYear < now) {
+                  dobThisYear.setFullYear(now.getFullYear() + 1);
+                }
+                
                 const diffDays = Math.ceil(
-                  (dob - now) / (1000 * 60 * 60 * 24)
+                  (dobThisYear - now) / (1000 * 60 * 60 * 24)
                 );
 
-                return `<li>🎉 ${u.first_name} ${u.last_name}'s birthday is in ${diffDays} day(s) — (${utils.formatDate(
-                  u.date_of_birth
-                )})</li>`;
+                return `<li>🎉 ${utils.escapeHtml(u.first_name)} ${utils.escapeHtml(u.last_name)}'s birthday is in ${diffDays} day(s) — (${utils.formatDate(u.date_of_birth)})</li>`;
               })
               .join("")}
           </ul>
@@ -336,15 +368,13 @@ class Dashboard {
 
             let previewContent = "";
             if (normalizedType === "image") {
-              previewContent = `<img src="${viewUrl}" alt="${file.file_name}" loading="lazy">`;
+              previewContent = `<img src="${viewUrl}" alt="${utils.escapeHtml(file.file_name)}" loading="lazy">`;
             } else if (normalizedType === "video") {
               previewContent = `<video src="${viewUrl}" controls muted></video>`;
             } else if (ext === "pdf") {
               previewContent = `<div class="file-icon pdf"></div>`;
             } else {
-              previewContent = `<div class="file-icon ${this.getDocumentIconClass(
-                ext
-              )}"></div>`;
+              previewContent = `<div class="file-icon ${this.getDocumentIconClass(ext)}"></div>`;
             }
 
             return `
@@ -353,14 +383,12 @@ class Dashboard {
                    data-download="${downloadUrl}"
                    data-type="${normalizedType}"
                    data-ext="${ext}"
-                   data-name="${file.file_name}">
+                   data-name="${utils.escapeHtml(file.file_name)}">
                 <div class="file-preview">${previewContent}</div>
                 <div class="file-info">
-                  <div class="file-name" title="${file.file_name}">${file.file_name}</div>
+                  <div class="file-name" title="${utils.escapeHtml(file.file_name)}">${utils.escapeHtml(file.file_name)}</div>
                   <div class="file-meta">
-                    <span class="file-size">${this.formatFileSize(
-                      file.file_size
-                    )}</span>
+                    <span class="file-size">${this.formatFileSize(file.file_size)}</span>
                     <span class="file-date">${
                       file.uploaded_at
                         ? utils.formatDate(file.uploaded_at)
@@ -369,7 +397,7 @@ class Dashboard {
                   </div>
                   <div class="file-actions">
                     <button class="btn-download" data-url="${downloadUrl}" data-ext="${ext}"><i class="icon-download"></i></button>
-                    <button class="btn-share" data-url="${viewUrl}" data-name="${file.file_name}"><i class="icon-share"></i></button>
+                    <button class="btn-share" data-url="${viewUrl}" data-name="${utils.escapeHtml(file.file_name)}"><i class="icon-share"></i></button>
                   </div>
                 </div>
               </div>
@@ -377,6 +405,86 @@ class Dashboard {
           })
           .join("")}
       </div>
+    `;
+  }
+
+  /* ===========================
+     Passwords 🔑 (Dashboard View)
+  =========================== */
+  renderPasswords(passwords) {
+    return `
+      <div class="passwords-section">
+        <div class="section-header">
+          <h2><i class="fas fa-key"></i> Recent Passwords</h2>
+          <a href="passwords.html" class="btn-view-all">
+            <i class="fas fa-arrow-right"></i> Manage All
+          </a>
+        </div>
+        <div class="table-container">
+          <table class="passwords-table">
+            <thead>
+              <tr>
+                <th>Service</th>
+                <th>URL</th>
+                <th>Username/Email</th>
+                <th>Password</th>
+                <th>Category</th>
+                <th>Date</th>
+                <th>Expiry</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${passwords.slice(0, 5).map(item => this.renderPasswordRow(item)).join('')}
+            </tbody>
+          </table>
+          ${passwords.length > 5 ? `
+            <div class="view-more">
+              <a href="passwords.html" class="btn-view-more">
+                View all ${passwords.length} passwords
+              </a>
+            </div>
+          ` : ''}
+        </div>
+      </div>
+    `;
+  }
+
+  renderPasswordRow(item) {
+    let expiryClass = '';
+    let expiryText = item.expiry_date ? utils.formatDate(item.expiry_date) : '-';
+    
+    if (item.expiry_date) {
+      const expiryDate = new Date(item.expiry_date);
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      expiryDate.setHours(0, 0, 0, 0);
+      
+      const diffDays = Math.ceil((expiryDate - today) / (1000 * 60 * 60 * 24));
+      
+      if (diffDays < 0) {
+        expiryClass = 'expired';
+        expiryText = 'Expired';
+      } else if (diffDays <= 7) {
+        expiryClass = 'expiring-soon';
+        expiryText = `${diffDays} days left`;
+      }
+    }
+
+    return `
+      <tr onclick="window.location.href='passwords.html?id=${item.password_id}'" style="cursor: pointer;">
+        <td><strong>${utils.escapeHtml(item.service_name || item.website || 'Website')}</strong></td>
+        <td>
+          ${item.service_url ? 
+            `<a href="${utils.escapeHtml(item.service_url)}" target="_blank" rel="noopener noreferrer" onclick="event.stopPropagation()">
+              <i class="fas fa-external-link-alt"></i>
+            </a>` : '-'}
+        </td>
+        <td>${utils.escapeHtml(item.username || item.email || '-')}</td>
+        <td><span class="password-blurred">••••••••</span></td>
+        <td><span class="category-badge">${utils.escapeHtml(item.category || 'general')}</span></td>
+        <td>${item.password_date ? utils.formatDate(item.password_date) : '-'}</td>
+        <td class="${expiryClass}">${expiryText}</td>
+      </tr>
     `;
   }
 
@@ -496,7 +604,7 @@ class Dashboard {
     let bodyContent = "";
 
     if (type === "image") {
-      bodyContent = `<img src="${viewUrl}" alt="${name}">`;
+      bodyContent = `<img src="${viewUrl}" alt="${utils.escapeHtml(name)}">`;
     } else if (type === "video") {
       bodyContent = `<video src="${viewUrl}" controls autoplay></video>`;
     } else if (ext === "pdf") {
@@ -509,16 +617,14 @@ class Dashboard {
       )}&embedded=true`;
       bodyContent = `<iframe src="${gview}" width="100%" height="600px" style="border:none;"></iframe>`;
     } else {
-      bodyContent = `<div class="file-icon ${this.getDocumentIconClass(
-        ext
-      )}"></div>
+      bodyContent = `<div class="file-icon ${this.getDocumentIconClass(ext)}"></div>
         <p>Cannot preview this file.</p>`;
     }
 
     modal.innerHTML = `
       <div class="modal-content">
         <div class="modal-header">
-          <h3>${name}</h3>
+          <h3>${utils.escapeHtml(name)}</h3>
           <button class="btn-close">&times;</button>
         </div>
         <div class="modal-body">${bodyContent}</div>
@@ -529,18 +635,13 @@ class Dashboard {
       </div>
     `;
 
-    modal
-      .querySelector(".btn-close")
-      .addEventListener("click", () => modal.remove());
-
-    modal
-      .querySelector(".btn-download")
-      .addEventListener("click", () =>
-        this.downloadFile(downloadUrl, ext)
-      );
-    modal
-      .querySelector(".btn-share")
-      .addEventListener("click", () => this.shareFile(viewUrl, name));
+    modal.querySelector(".btn-close").addEventListener("click", () => modal.remove());
+    modal.querySelector(".btn-download").addEventListener("click", () =>
+      this.downloadFile(downloadUrl, ext)
+    );
+    modal.querySelector(".btn-share").addEventListener("click", () =>
+      this.shareFile(viewUrl, name)
+    );
 
     modal.addEventListener("click", (e) => {
       if (e.target === modal) modal.remove();
@@ -563,13 +664,18 @@ class Dashboard {
     this.elements.menuButtons.forEach((b) => b.classList.remove("active"));
     btn.classList.add("active");
     this.currentType = btn.dataset.type;
-    this.loadData(this.currentType);
-
     
     if (this.currentType === 'fbsc') {
       window.location.href = 'fbsc.html';
       return;
     }
+    
+    if (this.currentType === 'passwords') {
+      window.location.href = 'passwords.html';
+      return;
+    }
+    
+    this.loadData(this.currentType);
   }
 
   handleSearch() {
@@ -580,6 +686,13 @@ class Dashboard {
           item.event_name.toLowerCase().includes(query) ||
           (item.event_description &&
             item.event_description.toLowerCase().includes(query))
+        );
+      } else if (this.currentType === "passwords") {
+        return (
+          (item.service_name && item.service_name.toLowerCase().includes(query)) ||
+          (item.website && item.website.toLowerCase().includes(query)) ||
+          (item.username && item.username.toLowerCase().includes(query)) ||
+          (item.email && item.email.toLowerCase().includes(query))
         );
       }
       return item.file_name.toLowerCase().includes(query);
