@@ -6,16 +6,16 @@
   <title>BrothersCloud - Upload</title>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
   <link rel="stylesheet" href="css/upload.css"/>
-  <style>
-    /* Simple styling for event list */
-    #eventsList { margin-top: 20px; }
-    .event-item { border: 1px solid #ccc; padding: 10px; margin-bottom: 10px; border-radius: 5px; }
-  </style>
 </head>
 <body>
   <header>
-    <h1>BrothersCloud - Upload</h1>
-    <button type="button" id="backBtn">Back to Dashboard</button>
+    <div class="header-content">
+      <h1>BrothersCloud - Upload</h1>
+      <div class="header-actions">
+        <button class="mode-btn" id="modeToggle" aria-label="Toggle dark mode"></button>
+        <button type="button" id="backBtn">Back to Dashboard</button>
+      </div>
+    </div>
   </header>
 
   <main>
@@ -32,9 +32,25 @@
         </select>
       </div>
 
-      <div class="form-group file-group">
+      <!-- Multi-file upload toggle -->
+      <div class="multi-file-toggle" id="multiFileToggle" style="display: none;">
+        <label>
+          <input type="checkbox" id="multiFileCheckbox"> Enable multi-file upload (up to 20 files)
+        </label>
+      </div>
+
+      <!-- Single file upload -->
+      <div class="form-group file-group" id="singleFileGroup">
         <label for="fileInput">Choose File</label>
         <input type="file" id="fileInput" name="file"/>
+      </div>
+
+      <!-- Multi-file upload area -->
+      <div class="form-group multi-file-group" id="multiFileGroup" style="display: none;">
+        <label for="multiFileInput">Choose Multiple Files</label>
+        <input type="file" id="multiFileInput" name="files" multiple accept="*/*"/>
+        <div class="file-preview-container" id="filePreviewContainer"></div>
+        <div class="file-count-info" id="fileCountInfo">No files selected</div>
       </div>
 
       <div class="form-group event-group" style="display:none;">
@@ -51,16 +67,38 @@
       <div class="form-group">
         <label for="itemName">Name</label>
         <input type="text" id="itemName" name="file_name" required />
+        <small class="field-hint" id="nameHint">For multi-file upload, this will be used as a prefix</small>
       </div>
 
       <div class="form-group">
         <label for="itemDesc">Description / More Info</label>
-        <textarea id="itemDesc" name="file_description" rows="4"></textarea>
+        <textarea id="itemDesc" name="file_description" rows="4" placeholder="Enter description..."></textarea>
       </div>
 
-      <button type="submit">Upload</button>
+      <!-- Progress bar for multi-file upload -->
+      <div class="upload-progress" id="uploadProgress" style="display: none;">
+        <div class="progress-header">
+          <span id="progressStatus">Uploading files...</span>
+          <span id="progressPercentage">0%</span>
+        </div>
+        <div class="progress-bar-container">
+          <div class="progress-bar" id="progressBar" style="width: 0%"></div>
+        </div>
+        <div class="upload-stats" id="uploadStats">
+          <span class="upload-success" id="successCount">0 uploaded</span>
+          <span class="upload-error" id="errorCount">0 failed</span>
+        </div>
+      </div>
+
+      <button type="submit" id="submitBtn">Upload</button>
       <div id="message" class="message"></div>
     </form>
+
+    <!-- Events List -->
+    <div id="eventsList">
+      <h2>Upcoming Events</h2>
+      <!-- Events will be loaded here -->
+    </div>
   </main>
 
   <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
